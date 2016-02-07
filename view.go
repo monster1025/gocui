@@ -27,6 +27,8 @@ type View struct {
 	tainted   bool       // marks if the viewBuffer must be updated
 	viewLines []viewLine // internal representation of the view's buffer
 
+	LineColors []Attribute
+
 	// BgColor and FgColor allow to configure the background and foreground
 	// colors of the View.
 	BgColor, FgColor Attribute
@@ -63,6 +65,7 @@ type View struct {
 }
 
 type viewLine struct {
+	color          Attribute
 	linesX, linesY int // coordinates relative to v.lines
 	line           []rune
 }
@@ -94,7 +97,7 @@ func (v *View) Name() string {
 // setRune writes a rune at the given point, relative to the view. It
 // checks if the position is valid and applies the view's colors, taking
 // into account if the cell must be highlighted.
-func (v *View) setRune(x, y int, ch rune) error {
+func (v *View) setRune(x, y int, ch rune, color Attribute) error {
 	maxX, maxY := v.Size()
 	if x < 0 || x >= maxX || y < 0 || y >= maxY {
 		return errors.New("invalid point")
@@ -105,8 +108,13 @@ func (v *View) setRune(x, y int, ch rune) error {
 		fgColor = v.SelFgColor
 		bgColor = v.SelBgColor
 	} else {
-		fgColor = v.FgColor
-		bgColor = v.BgColor
+		if color == ColorDefault {
+			fgColor = v.FgColor
+			bgColor = v.BgColor
+		} else {
+			fgColor = color
+			bgColor = v.BgColor
+		}
 	}
 	termbox.SetCell(v.x0+x+1, v.y0+y+1, ch,
 		termbox.Attribute(fgColor), termbox.Attribute(bgColor))
@@ -201,6 +209,14 @@ func (v *View) Rewind() {
 	v.readOffset = 0
 }
 
+func (v *View) getLineColor(i int) Attribute {
+	if len(v.LineColors) < i {
+		return ColorDefault
+	} else {
+		return v.LineColors[i]
+	}
+}
+
 // draw re-draws the view's contents.
 func (v *View) draw() error {
 	maxX, maxY := v.Size()
@@ -260,7 +276,7 @@ func (v *View) draw() error {
 			if x >= maxX {
 				break
 			}
-			if err := v.setRune(x, y, ch); err != nil {
+			if err := v.setRune(x, y, ch, v.getLineColor(i)); err != nil {
 				return err
 			}
 			x++
