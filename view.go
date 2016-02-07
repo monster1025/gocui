@@ -210,7 +210,7 @@ func (v *View) Rewind() {
 }
 
 func (v *View) getLineColor(i int) Attribute {
-	if len(v.LineColors) < i {
+	if v.LineColors == nil || len(v.LineColors) < i {
 		return ColorDefault
 	} else {
 		return v.LineColors[i]
