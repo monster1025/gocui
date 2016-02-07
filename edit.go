@@ -62,7 +62,7 @@ func (v *View) EditDelete(back bool) {
 	x, y := v.ox+v.cx, v.oy+v.cy
 	if y < 0 {
 		return
-	} else if y >= len(v.viewLines) {
+	} else if y >= len(v.ViewLines) {
 		v.MoveCursor(-1, 0, true)
 		return
 	}
@@ -81,13 +81,13 @@ func (v *View) EditDelete(back bool) {
 				maxPrevWidth = maxInt
 			}
 
-			if v.viewLines[y].linesX == 0 { // regular line
+			if v.ViewLines[y].linesX == 0 { // regular line
 				v.mergeLines(v.cy - 1)
-				if len(v.viewLines[y-1].line) < maxPrevWidth {
+				if len(v.ViewLines[y-1].line) < maxPrevWidth {
 					v.MoveCursor(-1, 0, true)
 				}
 			} else { // wrapped line
-				v.deleteRune(len(v.viewLines[y-1].line)-1, v.cy-1)
+				v.deleteRune(len(v.ViewLines[y-1].line)-1, v.cy-1)
 				v.MoveCursor(-1, 0, true)
 			}
 		} else { // middle/end of the line
@@ -95,7 +95,7 @@ func (v *View) EditDelete(back bool) {
 			v.MoveCursor(-1, 0, true)
 		}
 	} else {
-		if x == len(v.viewLines[y].line) { // end of the line
+		if x == len(v.ViewLines[y].line) { // end of the line
 			v.mergeLines(v.cy)
 		} else { // start/middle of the line
 			v.deleteRune(v.cx, v.cy)
@@ -108,8 +108,8 @@ func (v *View) EditNewLine() {
 	v.breakLine(v.cx, v.cy)
 
 	y := v.oy + v.cy
-	if y >= len(v.viewLines) || (y >= 0 && y < len(v.viewLines) &&
-		!(v.Wrap && v.cx == 0 && v.viewLines[y].linesX > 0)) {
+	if y >= len(v.ViewLines) || (y >= 0 && y < len(v.ViewLines) &&
+		!(v.Wrap && v.cx == 0 && v.ViewLines[y].linesX > 0)) {
 		// new line at the end of the buffer or
 		// cursor is not at the beginning of a wrapped line
 		v.ox = 0
@@ -134,8 +134,8 @@ func (v *View) MoveCursor(dx, dy int, writeMode bool) {
 			curLineWidth = maxInt
 		}
 	} else {
-		if y >= 0 && y < len(v.viewLines) {
-			curLineWidth = len(v.viewLines[y].line)
+		if y >= 0 && y < len(v.ViewLines) {
+			curLineWidth = len(v.ViewLines[y].line)
 			if v.Wrap && curLineWidth >= maxX {
 				curLineWidth = maxX - 1
 			}
@@ -144,8 +144,8 @@ func (v *View) MoveCursor(dx, dy int, writeMode bool) {
 		}
 	}
 	// get the width of the previous line
-	if y-1 >= 0 && y-1 < len(v.viewLines) {
-		prevLineWidth = len(v.viewLines[y-1].line)
+	if y-1 >= 0 && y-1 < len(v.ViewLines) {
+		prevLineWidth = len(v.ViewLines[y-1].line)
 	} else {
 		prevLineWidth = 0
 	}

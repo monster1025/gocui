@@ -25,7 +25,7 @@ type View struct {
 	readCache      string
 
 	tainted   bool       // marks if the viewBuffer must be updated
-	viewLines []viewLine // internal representation of the view's buffer
+	ViewLines []viewLine // internal representation of the view's buffer
 
 	// BgColor and FgColor allow to configure the background and foreground
 	// colors of the View.
@@ -60,11 +60,14 @@ type View struct {
 
 	// If Frame is true, Title allows to configure a title for the view.
 	Title string
+
+	CBgColor, CFgColor Attribute
 }
 
 type viewLine struct {
-	linesX, linesY int // coordinates relative to v.lines
-	line           []rune
+	BgColor, FgColor Attribute //colors
+	linesX, linesY   int       // coordinates relative to v.lines
+	line             []rune
 }
 
 // newView returns a new View object.
@@ -94,7 +97,7 @@ func (v *View) Name() string {
 // setRune writes a rune at the given point, relative to the view. It
 // checks if the position is valid and applies the view's colors, taking
 // into account if the cell must be highlighted.
-func (v *View) setRune(x, y int, ch rune) error {
+func (v *View) setRune(x, y int, ch rune, col Attribute) error {
 	maxX, maxY := v.Size()
 	if x < 0 || x >= maxX || y < 0 || y >= maxY {
 		return errors.New("invalid point")
@@ -105,8 +108,13 @@ func (v *View) setRune(x, y int, ch rune) error {
 		fgColor = v.SelFgColor
 		bgColor = v.SelBgColor
 	} else {
-		fgColor = v.FgColor
-		bgColor = v.BgColor
+		if col == ColorDefault {
+			fgColor = v.FgColor
+			bgColor = v.BgColor
+		} else {
+			fgColor = col
+			bgColor = v.BgColor
+		}
 	}
 	termbox.SetCell(v.x0+x+1, v.y0+y+1, ch,
 		termbox.Attribute(fgColor), termbox.Attribute(bgColor))
@@ -212,40 +220,40 @@ func (v *View) draw() error {
 		v.ox = 0
 	}
 	if v.tainted {
-		v.viewLines = nil
+		v.ViewLines = nil
 		for i, line := range v.lines {
 			if v.Wrap {
 				if len(line) <= maxX {
 					vline := viewLine{linesX: 0, linesY: i, line: line}
-					v.viewLines = append(v.viewLines, vline)
+					v.ViewLines = append(v.ViewLines, vline)
 					continue
 				} else {
 					vline := viewLine{linesX: 0, linesY: i, line: line[:maxX]}
-					v.viewLines = append(v.viewLines, vline)
+					v.ViewLines = append(v.ViewLines, vline)
 				}
 				// Append remaining lines
 				for n := maxX; n < len(line); n += maxX {
 					if len(line[n:]) <= maxX {
 						vline := viewLine{linesX: n, linesY: i, line: line[n:]}
-						v.viewLines = append(v.viewLines, vline)
+						v.ViewLines = append(v.ViewLines, vline)
 					} else {
 						vline := viewLine{linesX: n, linesY: i, line: line[n : n+maxX]}
-						v.viewLines = append(v.viewLines, vline)
+						v.ViewLines = append(v.ViewLines, vline)
 					}
 				}
 			} else {
 				vline := viewLine{linesX: 0, linesY: i, line: line}
-				v.viewLines = append(v.viewLines, vline)
+				v.ViewLines = append(v.ViewLines, vline)
 			}
 		}
 		v.tainted = false
 	}
 
-	if v.Autoscroll && len(v.viewLines) > maxY {
-		v.oy = len(v.viewLines) - maxY
+	if v.Autoscroll && len(v.ViewLines) > maxY {
+		v.oy = len(v.ViewLines) - maxY
 	}
 	y := 0
-	for i, vline := range v.viewLines {
+	for i, vline := range v.ViewLines {
 		if i < v.oy {
 			continue
 		}
@@ -260,7 +268,7 @@ func (v *View) draw() error {
 			if x >= maxX {
 				break
 			}
-			if err := v.setRune(x, y, ch); err != nil {
+			if err := v.setRune(x, y, ch, vline.BgColor); err != nil {
 				return err
 			}
 			x++
@@ -280,18 +288,18 @@ func (v *View) realPosition(vx, vy int) (x, y int, err error) {
 		return 0, 0, errors.New("invalid point")
 	}
 
-	if len(v.viewLines) == 0 {
+	if len(v.ViewLines) == 0 {
 		return vx, vy, nil
 	}
 
-	if vy < len(v.viewLines) {
-		vline := v.viewLines[vy]
+	if vy < len(v.ViewLines) {
+		vline := v.ViewLines[vy]
 		x = vline.linesX + vx
 		y = vline.linesY
 	} else {
-		vline := v.viewLines[len(v.viewLines)-1]
+		vline := v.ViewLines[len(v.ViewLines)-1]
 		x = vx
-		y = vline.linesY + vy - len(v.viewLines) + 1
+		y = vline.linesY + vy - len(v.ViewLines) + 1
 	}
 
 	return x, y, nil
@@ -435,7 +443,7 @@ func (v *View) Buffer() string {
 // shown to the user.
 func (v *View) ViewBuffer() string {
 	str := ""
-	for _, l := range v.viewLines {
+	for _, l := range v.ViewLines {
 		str += string(l.line) + "\n"
 	}
 	return strings.Replace(str, "\x00", " ", -1)
